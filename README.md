@@ -2,8 +2,6 @@
 
 仿照 [dsh-ssh](https://github.com/zhu1090093659/dsh-web-ui/tree/main/packages/dsh-ssh) 开发的 DSH 插件：用 Windows 原生的 **WinRM / PowerShell Remoting** 协议远程管理 Windows 服务器，**目标机不需要装 OpenSSH**。
 
-作者：**andyfan1094**（独立插件，不属于 linxin666 插件家族）。
-
 ## 功能
 
 | 面 | 说明 |
