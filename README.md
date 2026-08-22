@@ -34,9 +34,15 @@ powershell -ExecutionPolicy Bypass -File .\scripts\enable-winrm.ps1
 
 > ⚠️ **安全**：HTTP + Basic 是明文，仅限受信内网；公网请配置 HTTPS + 自签名证书，并在插件里勾选「接受自签名证书」。密码明文存于本机 `~/.dsh/dsh-winrm.json`（0600 权限，仅当前用户可读），插件界面永不回显。
 
-## 安装（本机 dsh web）
+## 安装
 
-已在 `D:\项目\dsh-winrm` 开发，通过 profile 链接安装：
+从 [Releases](https://github.com/andyfan1094/dsh-winrm/releases) 下载最新的 `dsh-winrm-*.tgz`，加入 profile：
+
+```powershell
+dsh plugin --profile web add D:\downloads\dsh-winrm-0.1.4.tgz
+```
+
+本地开发可用 profile 链接安装：
 
 ```bash
 dsh plugin --profile web add link:D:\项目\dsh-winrm
