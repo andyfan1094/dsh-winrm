@@ -16,7 +16,7 @@
 
 ## 认证与传输
 
-- 使用 Windows 本机 `pywinrm` 的 NTLM/SPNEGO 实现（目标服务器广告 `Negotiate` 时兼容性更好）
+- 使用 Windows 本机 `pywinrm`，优先 NTLM；受控兼容场景可回退 Basic（HTTP Basic 仅限受信内网，公网必须使用 HTTPS）
 - 本地账户可写 `Administrator`；域账户可写 `DOMAIN\user` 或 `user@domain`
 - 本机需要可调用 Python + `pywinrm`（当前环境已安装；其他机器可执行 `python -m pip install pywinrm`）
 - 传输：HTTP(5985) 或 HTTPS(5986)；HTTPS 可勾选「接受自签名证书」
