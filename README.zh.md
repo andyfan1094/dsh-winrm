@@ -1,7 +1,5 @@
 # dsh-winrm — Windows 远程管理插件（WinRM / PowerShell Remoting）
 
-[中文文档](README.zh.md) | English
-
 仿照 [dsh-ssh](https://github.com/zhu1090093659/dsh-web-ui/tree/main/packages/dsh-ssh) 开发的 DSH 插件：用 Windows 原生的 **WinRM / PowerShell Remoting** 协议远程管理 Windows 服务器，**目标机不需要装 OpenSSH**。
 
 ## 功能
@@ -19,7 +17,7 @@
 ## 认证与传输
 
 - 使用 Windows 本机 `pywinrm`，优先 NTLM；受控兼容场景可回退 Basic（HTTP Basic 仅限受信内网，公网必须使用 HTTPS）
-- 本地账户可写 `Administrator`；域账户可写 `DOMAIN\user` 或 `user@domain`
+- 本地账户可写 `Administrator`；域账户可写 `DOMAIN\\user` 或 `user@domain`
 - 本机需要可调用 Python + `pywinrm`（当前环境已安装；其他机器可执行 `python -m pip install pywinrm`）
 - 传输：HTTP(5985) 或 HTTPS(5986)；HTTPS 可勾选「接受自签名证书」
 - 中文输出不乱码：所有命令走 **UTF-8 base64 信封**（`-EncodedCommand` + `Out-String` 包装），绕过 WinRM 传输的代码页问题
@@ -35,6 +33,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\enable-winrm.ps1
 脚本自动：启用 WinRM 服务与 5985 监听 → 开放 Basic/Negotiate 认证 → 允许 HTTP 明文（内网）→ WinRS 内存上限 512MB → 放行防火墙 → 打印本机 IP。
 
 > ⚠️ **安全**：HTTP + Basic 是明文，仅限受信内网；公网请配置 HTTPS + 自签名证书，并在插件里勾选「接受自签名证书」。密码明文存于本机 `~/.dsh/dsh-winrm.json`（0600 权限，仅当前用户可读），插件界面永不回显。
+
+## 截图
+
+![dsh-winrm 截图](docs/screenshots/winrm-panel.png)
+
 
 ## 安装
 
@@ -100,3 +103,7 @@ scripts/
 - WinRM 单次响应受 150KB 信封上限约束，传输按 48KB 分块，大文件较慢（每块一次往返）
 - 单命令默认 60s 超时，可传 `timeoutMs`
 - 目标机需已启用 WinRM（见上）；HTTP 明文 Basic 不应用于公网
+
+---
+
+English documentation: see [README.md](README.md).
