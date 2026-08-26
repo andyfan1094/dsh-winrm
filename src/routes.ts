@@ -303,6 +303,7 @@ export function makeRoutes(deps: WinrmRoutesDeps): { routes: WebRoute[]; upgrade
           writeJson(res, 400, { error: 'alias and remotePath query parameters are required' })
           return
         }
+        const channel = queryParam(url, 'channel') ?? 'auto'
         const declared = Number(req.headers['content-length'])
         if (Number.isFinite(declared) && declared > maxUploadBytes) {
           writeJson(res, 413, { error: 'upload body too large' })
@@ -361,7 +362,7 @@ export function makeRoutes(deps: WinrmRoutesDeps): { routes: WebRoute[]; upgrade
           if (settled) return
           emit({ type: 'progress', progress: { phase: 'connecting', file: remotePath, transferred: 0, total: 0, percent: 0 } })
           try {
-            const outcome = await engine.upload(alias, tmp, remotePath, progress => emit({ type: 'progress', progress }))
+            const outcome = await engine.upload(alias, tmp, remotePath, progress => emit({ type: 'progress', progress }), channel as 'auto' | 'smb' | 'winrm')
             emit({ type: 'result', ok: true, transferredBytes: outcome.bytes })
           } catch (error) {
             emit({ type: 'result', ok: false, error: error instanceof Error ? error.message : String(error) })
@@ -385,10 +386,11 @@ export function makeRoutes(deps: WinrmRoutesDeps): { routes: WebRoute[]; upgrade
           writeJson(res, 400, { error: 'alias and remotePath query parameters are required' })
           return
         }
+        const channel = queryParam(url, 'channel') ?? 'auto'
         const tmp = join(staging, `download-${randomBytes(6).toString('hex')}`)
         try {
           closeSync(openSync(tmp, 'w', 0o600))
-          const outcome = await engine.download(alias, remotePath, tmp)
+          const outcome = await engine.download(alias, remotePath, tmp, undefined, channel as 'auto' | 'smb' | 'winrm')
           res.writeHead(200, {
             'content-type': 'application/octet-stream',
             'content-length': String(outcome.bytes),

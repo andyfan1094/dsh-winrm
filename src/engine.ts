@@ -9,6 +9,7 @@
 import type { ClusterResult, ExecResult, ProcessInfo, RemoteDirEntry, ServiceInfo, TestResult, TransferProgress, WinHostSummary } from './protocol.ts'
 import type { HostStore } from './store.ts'
 import { connOf, downloadChunks, runScript, testConnection, uploadBuffer } from './engine/client.ts'
+import { downloadSmb, uploadSmb, type TransferChannel } from './smb.ts'
 import { ConsoleSession } from './engine/console.ts'
 import { psKillProcess, psListDir, psListProcesses, psListServices, psServiceAction } from './powershell.ts'
 
@@ -234,31 +235,51 @@ export class WinRmEngine {
 
   // -------------------------------------------------------------- transfer
 
-  /** Upload one local file to a remote path (base64 chunks). */
-  async upload(alias: string, localPath: string, remotePath: string, onProgress?: (progress: TransferProgress) => void): Promise<{ bytes: number }> {
+  /** Upload one local file to a remote path. Defaults to SMB with WinRM fallback. */
+  async upload(alias: string, localPath: string, remotePath: string, onProgress?: (progress: TransferProgress) => void, channel: TransferChannel = 'auto'): Promise<{ bytes: number; channel?: TransferChannel }> {
     const entry = this.store.find(alias)
     if (entry === undefined) throw new Error(`alias '${alias}' not found`)
     const { readFileSync } = await import('node:fs')
     const data = readFileSync(localPath)
     return this.gate.run(alias, async () => {
       onProgress?.({ phase: 'connecting', file: remotePath, transferred: 0, total: data.length, percent: 0 })
+      if (channel !== 'winrm') {
+        try {
+          const outcome = await uploadSmb(entry, localPath, remotePath)
+          onProgress?.({ phase: 'done', file: remotePath, transferred: outcome.bytes, total: outcome.bytes, percent: 100 })
+          return { bytes: outcome.bytes, channel: outcome.channel }
+        } catch (error) {
+          if (channel === 'smb') throw error
+          onProgress?.({ phase: 'connecting', file: remotePath, transferred: 0, total: data.length, percent: 0 })
+        }
+      }
       const bytes = await uploadBuffer(connOf(entry), remotePath, data, (transferred, total) => {
         onProgress?.({ phase: 'transferring', file: remotePath, transferred, total, percent: total > 0 ? Math.round((transferred / total) * 1000) / 10 : 0 })
       })
       onProgress?.({ phase: 'done', file: remotePath, transferred: bytes, total: bytes, percent: 100 })
-      return { bytes }
+      return { bytes, channel: 'winrm' }
     })
   }
 
-  /** Download one remote file to a local path (base64 chunks). */
-  async download(alias: string, remotePath: string, localPath: string, onProgress?: (progress: TransferProgress) => void): Promise<{ bytes: number }> {
+  /** Download one remote file to a local path. Defaults to SMB with WinRM fallback. */
+  async download(alias: string, remotePath: string, localPath: string, onProgress?: (progress: TransferProgress) => void, channel: TransferChannel = 'auto'): Promise<{ bytes: number; channel?: TransferChannel }> {
     const entry = this.store.find(alias)
     if (entry === undefined) throw new Error(`alias '${alias}' not found`)
-    const { createWriteStream } = await import('node:fs')
     return this.gate.run(alias, async () => {
+      onProgress?.({ phase: 'connecting', file: remotePath, transferred: 0, total: 0, percent: 0 })
+      if (channel !== 'winrm') {
+        try {
+          const outcome = await downloadSmb(entry, remotePath, localPath)
+          onProgress?.({ phase: 'done', file: remotePath, transferred: outcome.bytes, total: outcome.bytes, percent: 100 })
+          return { bytes: outcome.bytes, channel: outcome.channel }
+        } catch (error) {
+          if (channel === 'smb') throw error
+          onProgress?.({ phase: 'connecting', file: remotePath, transferred: 0, total: 0, percent: 0 })
+        }
+      }
+      const { createWriteStream } = await import('node:fs')
       const sink = createWriteStream(localPath, { mode: 0o600 })
       let bytes = 0
-      onProgress?.({ phase: 'connecting', file: remotePath, transferred: 0, total: 0, percent: 0 })
       await new Promise<void>((resolve, reject) => {
         sink.on('error', reject)
         void downloadChunks(
@@ -276,7 +297,7 @@ export class WinRmEngine {
         )
       })
       onProgress?.({ phase: 'done', file: remotePath, transferred: bytes, total: bytes, percent: 100 })
-      return { bytes }
+      return { bytes, channel: 'winrm' }
     })
   }
 

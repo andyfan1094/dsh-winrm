@@ -265,12 +265,13 @@ export function winrmProcessTool(engine: WinRmEngine) {
 export function winrmUploadTool(engine: WinRmEngine) {
   return defineTool({
     name: 'winrm_upload',
-    description: 'Upload a local file to a configured Windows host (base64 chunked over WinRM). The local path is on THIS machine (the dsh host). ' +
+    description: 'Upload a local file to a configured Windows host (SMB admin share preferred, base64 WinRM chunk fallback). The local path is on THIS machine (the dsh host). ' +
       'Triggers: upload file to Windows server, deploy artifact, copy config to Windows server.',
     parameters: {
       alias: { type: 'string', required: true, description: 'Host alias from winrm_list.' },
       localPath: { type: 'string', required: true, description: 'Absolute local file path on this machine.' },
       remotePath: { type: 'string', required: true, description: 'Destination path on the remote host, e.g. C:\\temp\\file.txt (parent dirs are created).' },
+      channel: { type: 'string', enum: ['auto', 'smb', 'winrm'], description: 'Transfer channel: smb (admin share), winrm (base64 chunks), or auto (default, SMB first with WinRM fallback).' },
     },
     output: {
       schema: {
@@ -279,17 +280,19 @@ export function winrmUploadTool(engine: WinRmEngine) {
         properties: {
           ok: { type: 'boolean', required: true },
           transferredBytes: { type: 'integer' },
+          channel: { type: 'string', enum: ['smb', 'winrm'] },
           error: { type: 'string' },
         },
       },
-      render: (_args, value: { ok: boolean; transferredBytes?: number; error?: string }) => text(value.ok
-        ? `uploaded ${value.transferredBytes ?? 0} bytes`
+      render: (_args, value: { ok: boolean; transferredBytes?: number; channel?: string; error?: string }) => text(value.ok
+        ? `uploaded ${value.transferredBytes ?? 0} bytes via ${value.channel ?? 'unknown'}`
         : `upload failed: ${value.error ?? 'unknown error'}`),
     },
     async execute(args) {
       try {
-        const outcome = await engine.upload(args.alias, args.localPath, args.remotePath)
-        return { ok: true, transferredBytes: outcome.bytes }
+        const outcome = await engine.upload(args.alias, args.localPath, args.remotePath, undefined, args.channel ?? 'auto')
+        const usedChannel: 'smb' | 'winrm' = outcome.channel === 'smb' ? 'smb' : 'winrm'
+        return { ok: true, transferredBytes: outcome.bytes, channel: usedChannel }
       } catch (error) {
         return { ok: false, error: error instanceof Error ? error.message : String(error) }
       }
@@ -301,12 +304,13 @@ export function winrmUploadTool(engine: WinRmEngine) {
 export function winrmDownloadTool(engine: WinRmEngine) {
   return defineTool({
     name: 'winrm_download',
-    description: 'Download a remote FILE from a configured Windows host to a local path on this machine (base64 chunked over WinRM). Directory download is not supported — download files individually. ' +
+    description: 'Download a remote FILE from a configured Windows host to a local path on this machine (SMB admin share preferred, base64 WinRM chunk fallback). Directory download is not supported — download files individually. ' +
       'Triggers: download file from Windows server, fetch remote log/artifact.',
     parameters: {
       alias: { type: 'string', required: true, description: 'Host alias from winrm_list.' },
       remotePath: { type: 'string', required: true, description: 'Remote file path, e.g. C:\\temp\\file.txt.' },
       localPath: { type: 'string', required: true, description: 'Absolute destination path on this machine.' },
+      channel: { type: 'string', enum: ['auto', 'smb', 'winrm'], description: 'Transfer channel: smb (admin share), winrm (base64 chunks), or auto (default, SMB first with WinRM fallback).' },
     },
     output: {
       schema: {
@@ -315,17 +319,19 @@ export function winrmDownloadTool(engine: WinRmEngine) {
         properties: {
           ok: { type: 'boolean', required: true },
           bytes: { type: 'integer' },
+          channel: { type: 'string', enum: ['smb', 'winrm'] },
           error: { type: 'string' },
         },
       },
-      render: (_args, value: { ok: boolean; bytes?: number; error?: string }) => text(value.ok
-        ? `downloaded ${value.bytes ?? 0} bytes`
+      render: (_args, value: { ok: boolean; bytes?: number; channel?: string; error?: string }) => text(value.ok
+        ? `downloaded ${value.bytes ?? 0} bytes via ${value.channel ?? 'unknown'}`
         : `download failed: ${value.error ?? 'unknown error'}`),
     },
     async execute(args) {
       try {
-        const outcome = await engine.download(args.alias, args.remotePath, args.localPath)
-        return { ok: true, bytes: outcome.bytes }
+        const outcome = await engine.download(args.alias, args.remotePath, args.localPath, undefined, args.channel ?? 'auto')
+        const usedChannel: 'smb' | 'winrm' = outcome.channel === 'smb' ? 'smb' : 'winrm'
+        return { ok: true, bytes: outcome.bytes, channel: usedChannel }
       } catch (error) {
         return { ok: false, error: error instanceof Error ? error.message : String(error) }
       }
