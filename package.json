@@ -1,7 +1,7 @@
 {
   "name": "dsh-winrm",
   "description": "Remote Windows administration for the dsh web GUI: WinRM/PowerShell Remoting host config store (~/.dsh/dsh-winrm.json), PowerShell exec / streaming console / service & process management / base64-chunked file transfer / cluster execution, plus agent tools (winrm_list, winrm_exec, winrm_service, winrm_process, winrm_upload, winrm_download, winrm_cluster). Standalone Cordis plugin — mounted via cordis.patch.yml + a profile node_modules link, no dsh source changes.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
